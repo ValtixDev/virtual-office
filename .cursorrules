@@ -1,0 +1,34 @@
+You are working on **Mundo Invertido**, the virtual office / command center of the VALTIX ecosystem.
+
+## Brand
+- VALTIX is the parent ecosystem. Heiven is one product inside it.
+- The app is called "Mundo Invertido", NOT "Virtual Office".
+- Logo: lightning bolt / V shape (public/valtix-logo.svg)
+
+## Design
+- Tech: React 18, no CSS frameworks, inline styles only, single file (src/VirtualOffice.jsx)
+- Theme: Ultra dark (#050510 bg), sci-fi/cybernetic aesthetic
+- PRIMARY ACCENT: Purple #7700C4 (NOT cyan, NOT blue)
+- Glows, shadows, particles, grid lines = all purple tinted
+- Text: white #FFFFFF primary, #6B6B80 secondary
+- Fonts: JetBrains Mono (data/labels), Space Grotesk (headings), Inter (body)
+- Labels: uppercase, letter-spacing 1.5-3, 7-9px, mono
+- Big numbers: Space Grotesk, weight 700
+- Animations: cubic-bezier, subtle purple glows, no jarring transitions
+
+## Agent Colors
+- CLAUDIN ADS: #7700C4 (purple, main)
+- HEIVEN CRM: #2563EB (blue)
+- CONTENT AI: #EC4899 (magenta)
+- SENTINEL: #F59E0B (amber)
+- Online: #00E5A0 | Offline: #EF4444
+
+## Rules
+- Always dark mode, never light backgrounds
+- All colors in the C object at top of VirtualOffice.jsx
+- No external dependencies without asking Daniel
+- No splitting into multiple files without asking Daniel
+- Keep all components inside VirtualOffice.jsx
+- Unicode/emoji icons only, no icon libraries
+- Portuguese (pt-BR) for all UI text
+- Logo VALTIX should appear in header and login screen
