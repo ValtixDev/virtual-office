@@ -349,6 +349,7 @@ function AgentView({ agent, project, onBack }) {
   // Métricas
   const [adMetrics, setAdMetrics] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsError, setMetricsError] = useState(null);
 
   // ── BASE DE CONHECIMENTO — carrega no mount ──
   useEffect(() => {
@@ -380,18 +381,23 @@ function AgentView({ agent, project, onBack }) {
   };
 
   // ── MÉTRICAS ──
-  useEffect(() => {
-    if (tab !== "metricas" || metricsLoading) return;
+  const fetchMetrics = async () => {
     setMetricsLoading(true);
-    supabase
-      .from("ad_metrics")
-      .select("*")
-      .eq("agent_id", agent.id)
-      .then(({ data, error }) => {
-        if (error) console.error("[Metrics] select error:", error);
-        setAdMetrics(data ?? []);
-        setMetricsLoading(false);
-      });
+    setMetricsError(null);
+    try {
+      const res = await fetch("/api/meta-ads?account=ca2");
+      const data = await res.json();
+      if (data.error) { setMetricsError(data.error); setAdMetrics([]); }
+      else setAdMetrics(data.ads ?? []);
+    } catch (err) {
+      setMetricsError(err.message);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "metricas" && adMetrics.length === 0 && !metricsLoading) fetchMetrics();
   }, [tab]);
 
   // ── CHAT HISTORY — carrega no mount ──
@@ -604,19 +610,36 @@ function AgentView({ agent, project, onBack }) {
       {/* Métricas */}
       {tab === "metricas" && (
         <div style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Toolbar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+            <button onClick={fetchMetrics} disabled={metricsLoading} style={{
+              padding: "6px 16px", borderRadius: 8, border: `1px solid ${C.purple}44`,
+              background: `${C.purple}12`, color: C.purple, cursor: metricsLoading ? "default" : "pointer",
+              fontSize: 10, fontFamily: "'JetBrains Mono'", letterSpacing: 1.5, opacity: metricsLoading ? 0.5 : 1,
+            }}>{metricsLoading ? "ATUALIZANDO..." : "↻ ATUALIZAR"}</button>
+          </div>
+
           {metricsLoading && (
             <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1 }}>Carregando...</div>
           )}
-          {!metricsLoading && adMetrics.length === 0 && (
+          {!metricsLoading && metricsError && (
+            <div style={{
+              padding: "16px", borderRadius: 12, background: `${C.red}10`,
+              border: `1px solid ${C.red}33`, fontSize: 11, color: C.red,
+              fontFamily: "'JetBrains Mono'", lineHeight: 1.6,
+            }}>⚠ {metricsError}</div>
+          )}
+          {!metricsLoading && !metricsError && adMetrics.length === 0 && (
             <div style={{
               padding: "32px", borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`,
               textAlign: "center", fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono'", lineHeight: 1.8,
             }}>
-              Nenhum anúncio conectado.<br />Conecte a Meta Ads API.
+              Nenhum anúncio encontrado.<br />Verifique as env vars META_ACCESS_TOKEN e META_AD_ACCOUNT_CA2.
             </div>
           )}
           {!metricsLoading && adMetrics.map((ad, ai) => {
-            const paused = ad.daily_budget === "PAUSADO" || ad.status === "paused";
+            const paused = ad.daily_budget === "PAUSADO" || ad.status === "PAUSED";
             return (
               <div key={ai} style={{
                 borderRadius: 14, background: C.surface,
