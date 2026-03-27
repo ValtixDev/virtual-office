@@ -1,7 +1,7 @@
-import VirtualOffice from './VirtualOffice';
+import MundoInvertido from './MundoInvertido';
 
 function App() {
-  return <VirtualOffice />;
+  return <MundoInvertido />;
 }
 
 export default App;

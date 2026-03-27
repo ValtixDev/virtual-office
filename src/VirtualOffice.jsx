@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 
 const C = {
-  bg: "#030810", surface: "#0A1020", surface2: "#0F1A2E", surface3: "#141E35",
+  bg: "#050510", surface: "#0A1020", surface2: "#0F1A2E", surface3: "#141E35",
   border: "#1A2744", borderLight: "#243352",
-  cyan: "#00F0FF", blue: "#2563EB", purple: "#8B5CF6", green: "#00E5A0",
+  cyan: "#7700C4", blue: "#2563EB", purple: "#9333EA", green: "#00E5A0",
   amber: "#F59E0B", red: "#EF4444", magenta: "#EC4899",
   text: "#E2E8F0", textDim: "#4A5568", textMid: "#8896AB",
 };
@@ -30,7 +30,7 @@ const AGENTS = [
   },
   {
     id: "content-ai", name: "CONTENT AI", role: "Copy & Criativos", status: "standby",
-    color: C.purple, icon: "◆", x: 80, y: 62,
+    color: C.magenta, icon: "◆", x: 80, y: 62,
     metrics: { created: 0, templates: 8, queue: 0, approved: 0 },
     lastAction: "Aguardando ativação", tasks: 0, uptime: "—",
     desc: "Produz copies para anúncios, headlines, descrições e criativos adaptados por canal.",
@@ -438,14 +438,10 @@ export default function VirtualOffice() {
         zIndex: 30, background: `linear-gradient(180deg, ${C.bg}DD, transparent)`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <svg width="32" height="32" viewBox="0 0 36 36">
-            <polygon points="18,2 33,10 33,26 18,34 3,26 3,10" fill="none" stroke={C.cyan} strokeWidth="1" opacity="0.5" />
-            <polygon points="18,8 27,13 27,23 18,28 9,23 9,13" fill={`${C.cyan}10`} stroke={C.cyan} strokeWidth="0.6" opacity="0.7" />
-            <text x="18" y="22" textAnchor="middle" fill={C.cyan} fontSize="11" fontWeight="700" fontFamily="Space Grotesk">V</text>
-          </svg>
+          <img src="/valtix-logo.svg" height="28" style={{ filter: "drop-shadow(0 0 8px #7700C466)" }} alt="VALTIX" />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "'Space Grotesk', sans-serif", letterSpacing: 2 }}>VIRTUAL OFFICE</div>
-            <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 3 }}>HEIVEN — REVENUE MACHINE</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "'Space Grotesk', sans-serif", letterSpacing: 2 }}>MUNDO INVERTIDO</div>
+            <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 3 }}>VALTIX ECOSYSTEM</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 24, fontFamily: "'JetBrains Mono', monospace" }}>
