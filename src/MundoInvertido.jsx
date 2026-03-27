@@ -453,7 +453,7 @@ function AgentView({ agent, project, onBack }) {
       const data = await res.json();
       const t2 = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const reply = data.reply || "Erro ao processar resposta.";
-      setMessages(prev => [...prev, { from: "agent", text: reply, time: t2 }]);
+      setMessages(prev => [...prev, { from: "agent", text: reply, time: t2, savedToKb: data.saved_to_kb === true }]);
       saveMessage("assistant", reply);
     } catch {
       const t2 = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -548,7 +548,12 @@ function AgentView({ agent, project, onBack }) {
                     fontFamily: m.from === "user" ? "'Inter'" : "'JetBrains Mono'",
                   }}>{m.text}</div>
                 </div>
-                <div style={{ fontSize: 9, color: C.textDim, marginTop: 3, fontFamily: "'JetBrains Mono'" }}>{m.time}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
+                  <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'JetBrains Mono'" }}>{m.time}</div>
+                  {m.savedToKb && (
+                    <div style={{ fontSize: 8, color: C.purple, fontFamily: "'JetBrains Mono'", letterSpacing: 0.5, opacity: 0.7 }}>💾 salvo na base</div>
+                  )}
+                </div>
               </div>
             ))}
             {isTyping && (
