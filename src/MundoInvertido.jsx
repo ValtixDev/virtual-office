@@ -350,64 +350,100 @@ function AgentView({ agent, project, onBack }) {
   const [adMetrics, setAdMetrics] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
+  // ── BASE DE CONHECIMENTO ──
   useEffect(() => {
-    if (tab === "base" && kbText === "" && !kbLoading) {
-      setKbLoading(true);
-      supabase
-        .from("knowledge_base")
-        .select("content")
-        .eq("agent_id", agent.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          setKbText(data?.content ?? "");
-          setKbLoading(false);
-        });
-    }
-  }, [tab]);
-
-  useEffect(() => {
-    if (tab === "metricas" && adMetrics.length === 0 && !metricsLoading) {
-      setMetricsLoading(true);
-      supabase
-        .from("ad_metrics")
-        .select("*")
-        .eq("agent_id", agent.id)
-        .then(({ data }) => {
-          setAdMetrics(data ?? []);
-          setMetricsLoading(false);
-        });
-    }
+    if (tab !== "base" || kbLoading) return;
+    setKbLoading(true);
+    supabase
+      .from("knowledge_base")
+      .select("content")
+      .eq("agent_id", agent.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.error("[KB] select error:", error);
+        else console.log("[KB] loaded:", data);
+        setKbText(data?.content ?? "");
+        setKbLoading(false);
+      });
   }, [tab]);
 
   const saveKb = async () => {
     setKbSaving(true);
-    await supabase
+    const { error } = await supabase
       .from("knowledge_base")
-      .upsert({ agent_id: agent.id, content: kbText }, { onConflict: "agent_id" });
+      .upsert({ agent_id: agent.id, content: kbText, updated_at: new Date().toISOString() }, { onConflict: "agent_id" });
+    if (error) console.error("[KB] upsert error:", error);
+    else console.log("[KB] saved");
     setKbSaving(false);
     setToast(true);
     setTimeout(() => setToast(false), 2000);
   };
 
-  const [messages, setMessages] = useState([{
-    from: "agent", text: "CLAUDIN ADS online. O que precisa?",
-    time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-  }]);
+  // ── MÉTRICAS ──
+  useEffect(() => {
+    if (tab !== "metricas" || metricsLoading) return;
+    setMetricsLoading(true);
+    supabase
+      .from("ad_metrics")
+      .select("*")
+      .eq("agent_id", agent.id)
+      .then(({ data, error }) => {
+        if (error) console.error("[Metrics] select error:", error);
+        setAdMetrics(data ?? []);
+        setMetricsLoading(false);
+      });
+  }, [tab]);
+
+  // ── CHAT HISTORY ──
+  const [messages, setMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(true);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const chatEnd = useRef(null);
   const inputRef = useRef(null);
 
+  useEffect(() => {
+    supabase
+      .from("chat_history")
+      .select("role, message, created_at")
+      .eq("agent_id", agent.id)
+      .order("created_at", { ascending: true })
+      .limit(50)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[Chat] load error:", error);
+          setMessages([{ from: "agent", text: "CLAUDIN ADS online. O que precisa?", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }]);
+        } else if (data && data.length > 0) {
+          console.log("[Chat] loaded", data.length, "messages");
+          setMessages(data.map(m => ({
+            from: m.role === "user" ? "user" : "agent",
+            text: m.message,
+            time: new Date(m.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          })));
+        } else {
+          setMessages([{ from: "agent", text: "CLAUDIN ADS online. O que precisa?", time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }]);
+        }
+        setChatLoading(false);
+      });
+  }, []);
+
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isTyping]);
-  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 400); }, []);
+  useEffect(() => { if (!chatLoading) setTimeout(() => inputRef.current?.focus(), 100); }, [chatLoading]);
+
+  const saveMessage = async (role, text) => {
+    const { error } = await supabase
+      .from("chat_history")
+      .insert({ agent_id: agent.id, role, message: text });
+    if (error) console.error("[Chat] insert error:", error);
+  };
 
   const send = async (text) => {
     if (!text.trim() || isTyping) return;
     const t = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    const userMsg = { from: "user", text: text.trim(), time: t };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { from: "user", text: text.trim(), time: t }]);
     setInput("");
     setIsTyping(true);
+    saveMessage("user", text.trim());
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -416,7 +452,9 @@ function AgentView({ agent, project, onBack }) {
       });
       const data = await res.json();
       const t2 = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      setMessages(prev => [...prev, { from: "agent", text: data.reply || "Erro ao processar resposta.", time: t2 }]);
+      const reply = data.reply || "Erro ao processar resposta.";
+      setMessages(prev => [...prev, { from: "agent", text: reply, time: t2 }]);
+      saveMessage("assistant", reply);
     } catch {
       const t2 = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       setMessages(prev => [...prev, { from: "agent", text: "Falha na conexão com o backend.", time: t2 }]);
@@ -486,6 +524,11 @@ function AgentView({ agent, project, onBack }) {
       {tab === "chat" && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ flex: 1, overflow: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {chatLoading && (
+              <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1, padding: "4px 0" }}>
+                Carregando histórico...
+              </div>
+            )}
             {messages.map((m, i) => (
               <div key={i} style={{
                 display: "flex", flexDirection: "column",
