@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "./supabaseClient";
 
 const C = {
   bg: "#050510", surface: "#0A0A1A", surface2: "#10102A",
   border: "#1E1E44",
   purple: "#7700C4", purpleBright: "#9333EA", purpleGlow: "#7700C444",
-  green: "#00E5A0", red: "#EF4444",
+  green: "#00E5A0", red: "#EF4444", amber: "#F59E0B",
   text: "#E8E8F0", textDim: "#4A4A6A", textMid: "#8888AA",
 };
 
@@ -327,8 +328,67 @@ function ProjectView({ project, onBack, onSelectAgent }) {
 }
 
 // ─── AGENT VIEW ──────────────────────────────────────
+const INSIGHTS = [
+  { type: "warn", text: "CTR do 'Vídeo 30s' está 0.8% — abaixo da média. Considere trocar o criativo." },
+  { type: "ok", text: "'Carrossel CRM' performando bem — CPL R$52, abaixo do limite de R$90." },
+  { type: "warn", text: "'Lead Gen Lookalike SP' pausada com frequência 2.9x e CPL R$198 — acima do limite." },
+  { type: "info", text: "Budget total ativo: R$140/dia. Potencial de escalar 'Carrossel CRM' em +30%." },
+];
+
+const AD_METRIC_KEYS = ["leads","cpl","spend","ctr","cpc","cpm","impressions","reach","frequency","clicks","conversions","daily_budget"];
+
 function AgentView({ agent, project, onBack }) {
   const [tab, setTab] = useState("chat");
+
+  // Base de conhecimento
+  const [kbText, setKbText] = useState("");
+  const [kbLoading, setKbLoading] = useState(false);
+  const [kbSaving, setKbSaving] = useState(false);
+  const [toast, setToast] = useState(false);
+
+  // Métricas
+  const [adMetrics, setAdMetrics] = useState([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+
+  useEffect(() => {
+    if (tab === "base" && kbText === "" && !kbLoading) {
+      setKbLoading(true);
+      supabase
+        .from("knowledge_base")
+        .select("content")
+        .eq("agent_id", agent.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          setKbText(data?.content ?? "");
+          setKbLoading(false);
+        });
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab === "metricas" && adMetrics.length === 0 && !metricsLoading) {
+      setMetricsLoading(true);
+      supabase
+        .from("ad_metrics")
+        .select("*")
+        .eq("agent_id", agent.id)
+        .then(({ data }) => {
+          setAdMetrics(data ?? []);
+          setMetricsLoading(false);
+        });
+    }
+  }, [tab]);
+
+  const saveKb = async () => {
+    setKbSaving(true);
+    await supabase
+      .from("knowledge_base")
+      .upsert({ agent_id: agent.id, content: kbText }, { onConflict: "agent_id" });
+    setKbSaving(false);
+    setToast(true);
+    setTimeout(() => setToast(false), 2000);
+  };
+
   const [messages, setMessages] = useState([{
     from: "agent", text: "CLAUDIN ADS online. O que precisa?",
     time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
@@ -412,7 +472,7 @@ function AgentView({ agent, project, onBack }) {
 
       {/* Tabs */}
       <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-        {[{ id: "chat", label: "CHAT" }, { id: "info", label: "INFO" }].map(t => (
+        {[{ id: "chat", label: "CHAT" }, { id: "metricas", label: "MÉTRICAS" }, { id: "base", label: "BASE" }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex: 1, padding: "9px 0", background: "transparent", border: "none",
             borderBottom: tab === t.id ? `2px solid ${agent.color}` : "2px solid transparent",
@@ -493,16 +553,109 @@ function AgentView({ agent, project, onBack }) {
         </div>
       )}
 
-      {/* Info */}
-      {tab === "info" && (
-        <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-            {Object.entries(agent.metrics).map(([k, v]) => (
-              <div key={k} style={{ padding: "12px 14px", borderRadius: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1, marginBottom: 5, textTransform: "uppercase" }}>{k}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'Space Grotesk'" }}>{v}</div>
+      {/* Métricas */}
+      {tab === "metricas" && (
+        <div style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {metricsLoading && (
+            <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1 }}>Carregando...</div>
+          )}
+          {!metricsLoading && adMetrics.length === 0 && (
+            <div style={{
+              padding: "32px", borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`,
+              textAlign: "center", fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono'", lineHeight: 1.8,
+            }}>
+              Nenhum anúncio conectado.<br />Conecte a Meta Ads API.
+            </div>
+          )}
+          {!metricsLoading && adMetrics.map((ad, ai) => {
+            const paused = ad.daily_budget === "PAUSADO" || ad.status === "paused";
+            return (
+              <div key={ai} style={{
+                borderRadius: 14, background: C.surface,
+                border: `1px solid ${paused ? C.red + "33" : C.border}`, overflow: "hidden",
+              }}>
+                <div style={{
+                  padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: "'Space Grotesk'" }}>
+                    {ad.ad_name || ad.name}
+                  </div>
+                  <span style={{
+                    fontSize: 8, fontFamily: "'JetBrains Mono'", letterSpacing: 1,
+                    padding: "2px 8px", borderRadius: 6,
+                    background: paused ? `${C.red}18` : `${C.green}12`,
+                    color: paused ? C.red : C.green,
+                  }}>{paused ? "PAUSADO" : "ATIVO"}</span>
+                </div>
+                <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+                  {AD_METRIC_KEYS.filter(k => ad[k] != null).map(k => (
+                    <div key={k} style={{ padding: "8px 10px", borderRadius: 8, background: C.surface2, border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 7, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: paused ? C.textDim : C.text, fontFamily: "'Space Grotesk'" }}>{ad[k]}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            );
+          })}
+
+          {/* Insights */}
+          <div style={{ borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${C.purple}` }}>
+              <div style={{ fontSize: 9, color: C.purple, fontFamily: "'JetBrains Mono'", letterSpacing: 2 }}>INSIGHTS</div>
+            </div>
+            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {INSIGHTS.map((ins, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>
+                    {ins.type === "ok" ? "✓" : ins.type === "warn" ? "⚠" : "◈"}
+                  </span>
+                  <span style={{
+                    fontSize: 11.5, lineHeight: 1.5, fontFamily: "'JetBrains Mono'",
+                    color: ins.type === "ok" ? C.green : ins.type === "warn" ? C.amber : C.textMid,
+                  }}>{ins.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Base de conhecimento */}
+      {tab === "base" && (
+        <div style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1 }}>
+            O que você escrever aqui define o comportamento do agente.
+          </div>
+          <textarea
+            value={kbLoading ? "" : kbText}
+            onChange={e => setKbText(e.target.value)}
+            placeholder={kbLoading ? "Carregando..." : "Insira aqui as regras e contexto do agente..."}
+            disabled={kbLoading}
+            style={{
+              flex: 1, minHeight: 260, background: C.surface2, border: `1px solid ${C.purple}33`,
+              borderRadius: 12, padding: "14px 16px", color: C.text, fontSize: 14,
+              fontFamily: "'JetBrains Mono'", lineHeight: 1.7, resize: "vertical",
+              outline: "none", caretColor: C.purple, opacity: kbLoading ? 0.5 : 1,
+            }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={saveKb}
+              disabled={kbSaving || kbLoading}
+              style={{
+                padding: "9px 24px", borderRadius: 9, border: `1px solid ${C.purple}44`,
+                background: `${C.purple}18`, color: C.purple, cursor: kbSaving ? "default" : "pointer",
+                fontSize: 11, fontFamily: "'JetBrains Mono'", letterSpacing: 2,
+                opacity: kbSaving ? 0.6 : 1,
+              }}>{kbSaving ? "SALVANDO..." : "SALVAR"}</button>
+            {toast && (
+              <span style={{
+                fontSize: 10, color: C.green, fontFamily: "'JetBrains Mono'",
+                letterSpacing: 1, animation: "msgIn 0.2s ease",
+              }}>✓ Salvo!</span>
+            )}
           </div>
         </div>
       )}
