@@ -350,14 +350,13 @@ function AgentView({ agent, project, onBack }) {
   const [adMetrics, setAdMetrics] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
-  // ── BASE DE CONHECIMENTO ──
+  // ── BASE DE CONHECIMENTO — carrega no mount ──
   useEffect(() => {
-    if (tab !== "base" || kbLoading) return;
     setKbLoading(true);
     supabase
       .from("knowledge_base")
       .select("content")
-      .eq("agent_id", agent.id)
+      .eq("agent_id", "claudin-ads")
       .maybeSingle()
       .then(({ data, error }) => {
         if (error) console.error("[KB] select error:", error);
@@ -365,14 +364,15 @@ function AgentView({ agent, project, onBack }) {
         setKbText(data?.content ?? "");
         setKbLoading(false);
       });
-  }, [tab]);
+  }, []);
 
   const saveKb = async () => {
     setKbSaving(true);
     const { error } = await supabase
       .from("knowledge_base")
-      .upsert({ agent_id: agent.id, content: kbText, updated_at: new Date().toISOString() }, { onConflict: "agent_id" });
-    if (error) console.error("[KB] upsert error:", error);
+      .update({ content: kbText, updated_at: new Date().toISOString() })
+      .eq("agent_id", "claudin-ads");
+    if (error) console.error("[KB] update error:", error);
     else console.log("[KB] saved");
     setKbSaving(false);
     setToast(true);
@@ -394,7 +394,7 @@ function AgentView({ agent, project, onBack }) {
       });
   }, [tab]);
 
-  // ── CHAT HISTORY ──
+  // ── CHAT HISTORY — carrega no mount ──
   const [messages, setMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -406,7 +406,7 @@ function AgentView({ agent, project, onBack }) {
     supabase
       .from("chat_history")
       .select("role, message, created_at")
-      .eq("agent_id", agent.id)
+      .eq("agent_id", "claudin-ads")
       .order("created_at", { ascending: true })
       .limit(50)
       .then(({ data, error }) => {
@@ -433,7 +433,7 @@ function AgentView({ agent, project, onBack }) {
   const saveMessage = async (role, text) => {
     const { error } = await supabase
       .from("chat_history")
-      .insert({ agent_id: agent.id, role, message: text });
+      .insert({ agent_id: "claudin-ads", role, message: text });
     if (error) console.error("[Chat] insert error:", error);
   };
 
