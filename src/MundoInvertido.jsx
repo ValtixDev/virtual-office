@@ -350,6 +350,7 @@ function AgentView({ agent, project, onBack }) {
   const [campaigns, setCampaigns] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState(null);
+  const [metricsAccount, setMetricsAccount] = useState("ca2");
 
   // ── BASE DE CONHECIMENTO — carrega no mount ──
   useEffect(() => {
@@ -381,14 +382,15 @@ function AgentView({ agent, project, onBack }) {
   };
 
   // ── MÉTRICAS ──
-  const fetchMetrics = async () => {
+  const fetchMetrics = async (account = metricsAccount) => {
     setMetricsLoading(true);
     setMetricsError(null);
+    setCampaigns([]);
     try {
-      const res = await fetch("/api/meta-ads?account=ca2");
+      const res = await fetch(`/api/meta-ads?account=${account}`);
       const data = await res.json();
       console.log("[Metrics] API response:", data);
-      if (data.error) { setMetricsError(data.error); setCampaigns([]); }
+      if (data.error) { setMetricsError(data.error); }
       else {
         console.log("[Metrics] campaigns loaded:", (data.campaigns ?? []).length);
         setCampaigns(data.campaigns ?? []);
@@ -402,7 +404,7 @@ function AgentView({ agent, project, onBack }) {
   };
 
   useEffect(() => {
-    if (tab === "metricas" && campaigns.length === 0 && !metricsLoading) fetchMetrics();
+    if (tab === "metricas" && campaigns.length === 0 && !metricsLoading) fetchMetrics(metricsAccount);
   }, [tab]);
 
   // ── CHAT HISTORY — carrega no mount ──
@@ -618,10 +620,26 @@ function AgentView({ agent, project, onBack }) {
 
           {/* Toolbar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 8, fontFamily: "'JetBrains Mono'", letterSpacing: 2, color: C.textDim, textTransform: "uppercase" }}>
-              CONTA: CA-2
-            </span>
-            <button onClick={fetchMetrics} disabled={metricsLoading} style={{
+            <div style={{ display: "flex", gap: 6 }}>
+              {["ca2", "ca1"].map((acc) => {
+                const active = metricsAccount === acc;
+                return (
+                  <button key={acc} disabled={metricsLoading} onClick={() => {
+                    setMetricsAccount(acc);
+                    fetchMetrics(acc);
+                  }} style={{
+                    padding: "5px 14px", borderRadius: 8, cursor: metricsLoading ? "default" : "pointer",
+                    fontSize: 10, fontFamily: "'JetBrains Mono'", letterSpacing: 1.5,
+                    border: `1px solid ${active ? C.purple : C.border}`,
+                    background: active ? C.purple : "transparent",
+                    color: active ? "#fff" : C.textDim,
+                    fontWeight: active ? 700 : 400,
+                    opacity: metricsLoading ? 0.5 : 1,
+                  }}>{acc.toUpperCase().replace("CA", "CA-")}</button>
+                );
+              })}
+            </div>
+            <button onClick={() => fetchMetrics(metricsAccount)} disabled={metricsLoading} style={{
               padding: "6px 16px", borderRadius: 8, border: `1px solid ${C.purple}44`,
               background: `${C.purple}12`, color: C.purple, cursor: metricsLoading ? "default" : "pointer",
               fontSize: 10, fontFamily: "'JetBrains Mono'", letterSpacing: 1.5, opacity: metricsLoading ? 0.5 : 1,
