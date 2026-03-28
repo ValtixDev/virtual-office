@@ -335,7 +335,7 @@ const INSIGHTS = [
   { type: "info", text: "Budget total ativo: R$140/dia. Potencial de escalar 'Carrossel CRM' em +30%." },
 ];
 
-const AD_METRIC_KEYS = ["leads","cpl","spend","ctr","cpc","cpm","impressions","reach","frequency","clicks","conversions","daily_budget"];
+const AD_METRIC_KEYS = ["spend","leads","cpl","ctr","cpc","cpm","impressions","reach","frequency","clicks","conversions","daily_budget"];
 
 function AgentView({ agent, project, onBack }) {
   const [tab, setTab] = useState("chat");
@@ -395,6 +395,7 @@ function AgentView({ agent, project, onBack }) {
           return (order[a.status] ?? 2) - (order[b.status] ?? 2);
         });
         console.log("[Metrics] ads loaded:", sorted.length, sorted.map(a => a.ad_name));
+        if (sorted.length > 0) console.log("[Metrics] first ad:", sorted[0]);
         setAdMetrics(sorted);
       }
     } catch (err) {
