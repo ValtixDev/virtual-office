@@ -23,11 +23,6 @@ const PROJECTS = [
       },
     ],
   },
-  {
-    id: "posicione-c", name: "POSICIONE-C", color: "#2563EB", status: "planned",
-    angle: 330, dist: 20,
-    agents: [],
-  },
 ];
 
 
