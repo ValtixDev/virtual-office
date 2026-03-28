@@ -347,7 +347,7 @@ function AgentView({ agent, project, onBack }) {
   const [toast, setToast] = useState(false);
 
   // Métricas
-  const [adMetrics, setAdMetrics] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState(null);
 
@@ -388,15 +388,10 @@ function AgentView({ agent, project, onBack }) {
       const res = await fetch("/api/meta-ads?account=ca2");
       const data = await res.json();
       console.log("[Metrics] API response:", data);
-      if (data.error) { setMetricsError(data.error); setAdMetrics([]); }
+      if (data.error) { setMetricsError(data.error); setCampaigns([]); }
       else {
-        const sorted = (data.ads ?? []).sort((a, b) => {
-          const order = { ACTIVE: 0, PAUSED: 1 };
-          return (order[a.status] ?? 2) - (order[b.status] ?? 2);
-        });
-        console.log("[Metrics] ads loaded:", sorted.length, sorted.map(a => a.ad_name));
-        if (sorted.length > 0) console.log("[Metrics] first ad:", sorted[0]);
-        setAdMetrics(sorted);
+        console.log("[Metrics] campaigns loaded:", (data.campaigns ?? []).length);
+        setCampaigns(data.campaigns ?? []);
       }
     } catch (err) {
       console.error("[Metrics] fetch error:", err.message);
@@ -407,7 +402,7 @@ function AgentView({ agent, project, onBack }) {
   };
 
   useEffect(() => {
-    if (tab === "metricas" && adMetrics.length === 0 && !metricsLoading) fetchMetrics();
+    if (tab === "metricas" && campaigns.length === 0 && !metricsLoading) fetchMetrics();
   }, [tab]);
 
   // ── CHAT HISTORY — carrega no mount ──
@@ -622,7 +617,10 @@ function AgentView({ agent, project, onBack }) {
         <div style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 12 }}>
 
           {/* Toolbar */}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 8, fontFamily: "'JetBrains Mono'", letterSpacing: 2, color: C.textDim, textTransform: "uppercase" }}>
+              CONTA: CA-2
+            </span>
             <button onClick={fetchMetrics} disabled={metricsLoading} style={{
               padding: "6px 16px", borderRadius: 8, border: `1px solid ${C.purple}44`,
               background: `${C.purple}12`, color: C.purple, cursor: metricsLoading ? "default" : "pointer",
@@ -638,76 +636,78 @@ function AgentView({ agent, project, onBack }) {
               ⚠ {metricsError}
             </div>
           )}
-          {!metricsLoading && !metricsError && adMetrics.length === 0 && (
+          {!metricsLoading && !metricsError && campaigns.length === 0 && (
             <div style={{ padding: "32px", borderRadius: 12, background: "#10102A", border: "1px solid #1E1E44", textAlign: "center", fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono'", lineHeight: 1.8 }}>
-              Nenhum anúncio encontrado.<br />Verifique as env vars META_ACCESS_TOKEN e META_AD_ACCOUNT_CA2.
+              Nenhuma campanha ativa encontrada.<br />Verifique as env vars META_ACCESS_TOKEN e META_AD_ACCOUNT_CA2.
             </div>
           )}
 
-          {!metricsLoading && adMetrics.map((ad, ai) => {
-            const isActive = ad.status === "ACTIVE";
-            const fields = [
-              { label: "GASTO",      value: ad.spend },
-              { label: "IMPRESSÕES", value: ad.impressions },
-              { label: "ALCANCE",    value: ad.reach },
-              { label: "CLIQUES",    value: ad.clicks },
-              { label: "CTR",        value: ad.ctr },
-              { label: "CPC",        value: ad.cpc },
-              { label: "CPM",        value: ad.cpm },
-              { label: "FREQUÊNCIA", value: ad.frequency },
-              { label: "LEADS",      value: ad.leads },
-              { label: "CONVERSÕES", value: ad.conversions },
-            ];
-            return (
-              <div key={ai} style={{ background: "#10102A", border: "1px solid #1E1E44", borderRadius: 12, padding: 16, marginBottom: 4 }}>
-                {/* Título + badge */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E8E8F0", fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {ad.ad_name}
-                  </div>
-                  <span style={{
-                    fontSize: 8, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1,
-                    padding: "2px 8px", borderRadius: 6,
-                    background: isActive ? "rgba(0,229,160,0.12)" : "rgba(245,158,11,0.18)",
-                    color: isActive ? "#00E5A0" : "#F59E0B",
-                  }}>{isActive ? "ACTIVE" : "PAUSED"}</span>
-                </div>
-                {/* Grid de métricas */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                  {fields.map(({ label, value }) => (
-                    <div key={label} style={{ background: "#0A0A1A", borderRadius: 8, padding: "8px 10px" }}>
-                      <div style={{ fontSize: 8, color: "#4A4A6A", fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
-                        {label}
-                      </div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#E8E8F0", fontFamily: "'Space Grotesk', sans-serif" }}>
-                        {value != null ? String(value) : "—"}
-                      </div>
-                    </div>
-                  ))}
+          {!metricsLoading && campaigns.map((campaign) => (
+            <div key={campaign.id} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Header da campanha */}
+              <div style={{
+                padding: "10px 14px", borderRadius: 10,
+                background: `${C.purple}0D`, borderLeft: `3px solid ${C.purple}`,
+                border: `1px solid ${C.purple}33`,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.purple, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {campaign.name}
                 </div>
               </div>
-            );
-          })}
 
-          {/* Insights */}
-          <div style={{ borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, borderLeft: `3px solid ${C.purple}` }}>
-              <div style={{ fontSize: 9, color: C.purple, fontFamily: "'JetBrains Mono'", letterSpacing: 2 }}>INSIGHTS</div>
-            </div>
-            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-              {INSIGHTS.map((ins, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>
-                    {ins.type === "ok" ? "✓" : ins.type === "warn" ? "⚠" : "◈"}
-                  </span>
-                  <span style={{
-                    fontSize: 11.5, lineHeight: 1.5, fontFamily: "'JetBrains Mono'",
-                    color: ins.type === "ok" ? C.green : ins.type === "warn" ? C.amber : C.textMid,
-                  }}>{ins.text}</span>
+              {campaign.adsets.map((adset) => (
+                <div key={adset.id} style={{ paddingLeft: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {/* Subtítulo do adset */}
+                  <div style={{ fontSize: 11, color: C.textMid, fontFamily: "'JetBrains Mono'", letterSpacing: 1, paddingLeft: 4, borderLeft: `1px solid ${C.border}` }}>
+                    ▸ {adset.name}
+                  </div>
+
+                  {/* Cards de anúncios */}
+                  {adset.ads.map((ad) => {
+                    const fields = [
+                      { label: "GASTO",      value: ad.spend },
+                      { label: "IMPRESSÕES", value: ad.impressions },
+                      { label: "ALCANCE",    value: ad.reach },
+                      { label: "CLIQUES",    value: ad.clicks },
+                      { label: "CTR",        value: ad.ctr },
+                      { label: "CPC",        value: ad.cpc },
+                      { label: "CPM",        value: ad.cpm },
+                      { label: "FREQUÊNCIA", value: ad.frequency },
+                      { label: "LEADS",      value: ad.leads },
+                      { label: "CONVERSÕES", value: ad.conversions },
+                      { label: "CPL",        value: ad.cpl },
+                    ];
+                    return (
+                      <div key={ad.ad_id} style={{ background: "#10102A", border: "1px solid #1E1E44", borderRadius: 12, padding: 16 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#E8E8F0", fontFamily: "'Space Grotesk', sans-serif" }}>
+                            {ad.ad_name}
+                          </div>
+                          <span style={{
+                            fontSize: 8, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1,
+                            padding: "2px 8px", borderRadius: 6,
+                            background: "rgba(0,229,160,0.12)", color: "#00E5A0",
+                          }}>ACTIVE</span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                          {fields.map(({ label, value }) => (
+                            <div key={label} style={{ background: "#0A0A1A", borderRadius: 8, padding: "8px 10px" }}>
+                              <div style={{ fontSize: 8, color: "#4A4A6A", fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
+                                {label}
+                              </div>
+                              <div style={{ fontSize: 16, fontWeight: 700, color: "#E8E8F0", fontFamily: "'Space Grotesk', sans-serif" }}>
+                                {value != null ? String(value) : "—"}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
-          </div>
+          ))}
         </div>
       )}
 
