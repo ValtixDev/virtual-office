@@ -1,5 +1,6 @@
 const SUPABASE_URL = "https://efvkcqnffmqodingqfbk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_iDUKwnqCiORGlMEsSe4bYA_eki5rNPF";
+const GRAPH_VERSION = "v25.0";
 
 async function claudeCall(systemPrompt, messages, maxTokens = 1024) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -36,7 +37,6 @@ async function getKb() {
 
 async function appendToKb(summary) {
   try {
-    // Busca content atual
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/knowledge_base?agent_id=eq.claudin-ads&select=content&limit=1`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
@@ -67,16 +67,52 @@ async function appendToKb(summary) {
   }
 }
 
+async function getMetaContext() {
+  const token = process.env.META_ACCESS_TOKEN;
+  const accountId = process.env.META_AD_ACCOUNT_CA2;
+  if (!token || !accountId) return "";
+
+  try {
+    const activeFilter = JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }]);
+
+    const campRes = await fetch(
+      `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/campaigns?fields=id,name&filtering=${encodeURIComponent(activeFilter)}&limit=20&access_token=${token}`
+    );
+    const campJson = await campRes.json();
+    if (campJson.error || !campJson.data?.length) return "";
+
+    const lines = ["Campanhas e conjuntos ativos na conta CA-2:"];
+    for (const campaign of campJson.data) {
+      lines.push(`  Campanha: "${campaign.name}" (ID: ${campaign.id})`);
+      try {
+        const adsetRes = await fetch(
+          `https://graph.facebook.com/${GRAPH_VERSION}/${campaign.id}/adsets?fields=id,name&filtering=${encodeURIComponent(activeFilter)}&limit=20&access_token=${token}`
+        );
+        const adsetJson = await adsetRes.json();
+        for (const adset of adsetJson.data ?? []) {
+          lines.push(`    Conjunto: "${adset.name}" (ID: ${adset.id})`);
+        }
+      } catch {}
+    }
+    return lines.join("\n");
+  } catch (err) {
+    console.error("[MetaContext] error:", err.message);
+    return "";
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { message, history = [] } = req.body;
   if (!message) return res.status(400).json({ error: "message is required" });
 
-  const kbContent = await getKb();
+  const [kbContent, metaContext] = await Promise.all([getKb(), getMetaContext()]);
 
   const systemPrompt = [
     "Você é o CLAUDIN ADS, um agente autônomo de gestão de Meta Ads dentro do ecossistema VALTIX. Responda de forma direta, técnica e concisa em português. Você gerencia campanhas no Meta Ads. Quando o operador definir regras, estratégias ou decisões, você deve reconhecer que isso será salvo automaticamente na base de conhecimento.",
+    "Você tem capacidade de executar ações no Meta Ads. Quando o operador pedir para pausar, ativar ou mudar budget, ou quando suas regras da base de conhecimento determinarem uma ação, responda com um bloco JSON especial no formato: <<<ACTION:{\"action\":\"pause_campaign\",\"params\":{\"campaign_id\":\"123\"}}>>> seguido da sua explicação. O frontend vai detectar esse bloco e executar a ação. Ações disponíveis: pause_campaign, activate_campaign, pause_adset, activate_adset, pause_ad, activate_ad, set_budget (requer campaign_id e daily_budget em reais).",
+    metaContext || "",
     kbContent ? `Contexto e regras do operador:\n${kbContent}` : "",
   ].filter(Boolean).join("\n\n");
 
@@ -95,7 +131,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 
-  // Classificador de memória — roda em paralelo sem bloquear a resposta
+  // Classificador de memória
   let savedToKb = false;
   try {
     const classifierPrompt =

@@ -460,9 +460,29 @@ function AgentView({ agent, project, onBack }) {
       });
       const data = await res.json();
       const t2 = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const reply = data.reply || "Erro ao processar resposta.";
-      setMessages(prev => [...prev, { from: "agent", text: reply, time: t2, savedToKb: data.saved_to_kb === true }]);
-      saveMessage("assistant", reply);
+      let rawReply = data.reply || "Erro ao processar resposta.";
+
+      // Detecta bloco de ação <<<ACTION:{...}>>>
+      const actionMatch = rawReply.match(/<<<ACTION:([\s\S]*?)>>>/);
+      let actionResult = null;
+      if (actionMatch) {
+        rawReply = rawReply.replace(/<<<ACTION:[\s\S]*?>>>/, "").trim();
+        try {
+          const actionPayload = JSON.parse(actionMatch[1]);
+          const actRes = await fetch("/api/meta-actions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(actionPayload),
+          });
+          const actData = await actRes.json();
+          actionResult = { success: actData.success, action: actionPayload.action };
+        } catch (err) {
+          actionResult = { success: false, action: "unknown", error: err.message };
+        }
+      }
+
+      setMessages(prev => [...prev, { from: "agent", text: rawReply, time: t2, savedToKb: data.saved_to_kb === true, actionResult }]);
+      saveMessage("assistant", rawReply);
     } catch {
       const t2 = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       setMessages(prev => [...prev, { from: "agent", text: "Falha na conexão com o backend.", time: t2 }]);
@@ -556,10 +576,21 @@ function AgentView({ agent, project, onBack }) {
                     fontFamily: m.from === "user" ? "'Inter'" : "'JetBrains Mono'",
                   }}>{m.text}</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
                   <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'JetBrains Mono'" }}>{m.time}</div>
                   {m.savedToKb && (
                     <div style={{ fontSize: 8, color: C.purple, fontFamily: "'JetBrains Mono'", letterSpacing: 0.5, opacity: 0.7 }}>💾 salvo na base</div>
+                  )}
+                  {m.actionResult && (
+                    <div style={{
+                      fontSize: 8, fontFamily: "'JetBrains Mono'", letterSpacing: 0.5,
+                      padding: "2px 7px", borderRadius: 5,
+                      background: m.actionResult.success ? `${C.green}18` : `${C.red}18`,
+                      color: m.actionResult.success ? C.green : C.red,
+                      border: `1px solid ${m.actionResult.success ? C.green : C.red}44`,
+                    }}>
+                      ⚡ {m.actionResult.success ? "Ação executada" : "Ação falhou"}: {m.actionResult.action}
+                    </div>
                   )}
                 </div>
               </div>
