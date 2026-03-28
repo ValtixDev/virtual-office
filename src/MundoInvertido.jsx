@@ -619,10 +619,10 @@ function AgentView({ agent, project, onBack }) {
 
       {/* Métricas */}
       {tab === "metricas" && (
-        <div style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 12 }}>
 
           {/* Toolbar */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button onClick={fetchMetrics} disabled={metricsLoading} style={{
               padding: "6px 16px", borderRadius: 8, border: `1px solid ${C.purple}44`,
               background: `${C.purple}12`, color: C.purple, cursor: metricsLoading ? "default" : "pointer",
@@ -634,49 +634,53 @@ function AgentView({ agent, project, onBack }) {
             <div style={{ fontSize: 10, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1 }}>Carregando...</div>
           )}
           {!metricsLoading && metricsError && (
-            <div style={{
-              padding: "16px", borderRadius: 12, background: `${C.red}10`,
-              border: `1px solid ${C.red}33`, fontSize: 11, color: C.red,
-              fontFamily: "'JetBrains Mono'", lineHeight: 1.6,
-            }}>⚠ {metricsError}</div>
+            <div style={{ padding: "16px", borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}33`, fontSize: 11, color: C.red, fontFamily: "'JetBrains Mono'", lineHeight: 1.6 }}>
+              ⚠ {metricsError}
+            </div>
           )}
           {!metricsLoading && !metricsError && adMetrics.length === 0 && (
-            <div style={{
-              padding: "32px", borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`,
-              textAlign: "center", fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono'", lineHeight: 1.8,
-            }}>
+            <div style={{ padding: "32px", borderRadius: 12, background: "#10102A", border: "1px solid #1E1E44", textAlign: "center", fontSize: 11, color: C.textDim, fontFamily: "'JetBrains Mono'", lineHeight: 1.8 }}>
               Nenhum anúncio encontrado.<br />Verifique as env vars META_ACCESS_TOKEN e META_AD_ACCOUNT_CA2.
             </div>
           )}
+
           {!metricsLoading && adMetrics.map((ad, ai) => {
             const isActive = ad.status === "ACTIVE";
-            const isPaused = ad.status === "PAUSED";
-            const badgeBg = isActive ? `${C.green}12` : `${C.amber}18`;
-            const badgeColor = isActive ? C.green : C.amber;
-            const badgeLabel = isActive ? "ATIVO" : "PAUSADO";
+            const fields = [
+              { label: "GASTO",      value: ad.spend },
+              { label: "IMPRESSÕES", value: ad.impressions },
+              { label: "ALCANCE",    value: ad.reach },
+              { label: "CLIQUES",    value: ad.clicks },
+              { label: "CTR",        value: ad.ctr },
+              { label: "CPC",        value: ad.cpc },
+              { label: "CPM",        value: ad.cpm },
+              { label: "FREQUÊNCIA", value: ad.frequency },
+              { label: "LEADS",      value: ad.leads },
+              { label: "CONVERSÕES", value: ad.conversions },
+            ];
             return (
-              <div key={ai} style={{
-                borderRadius: 14, background: C.surface,
-                border: `1px solid ${isPaused ? C.amber + "33" : C.border}`, overflow: "hidden",
-              }}>
-                <div style={{
-                  padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: "'Space Grotesk'" }}>
+              <div key={ai} style={{ background: "#10102A", border: "1px solid #1E1E44", borderRadius: 12, padding: 16, marginBottom: 4 }}>
+                {/* Título + badge */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#E8E8F0", fontFamily: "'Space Grotesk', sans-serif" }}>
                     {ad.ad_name}
                   </div>
                   <span style={{
-                    fontSize: 8, fontFamily: "'JetBrains Mono'", letterSpacing: 1,
-                    padding: "2px 8px", borderRadius: 6, background: badgeBg, color: badgeColor,
-                  }}>{badgeLabel}</span>
+                    fontSize: 8, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1,
+                    padding: "2px 8px", borderRadius: 6,
+                    background: isActive ? "rgba(0,229,160,0.12)" : "rgba(245,158,11,0.18)",
+                    color: isActive ? "#00E5A0" : "#F59E0B",
+                  }}>{isActive ? "ACTIVE" : "PAUSED"}</span>
                 </div>
-                <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-                  {AD_METRIC_KEYS.map(k => (
-                    <div key={k} style={{ padding: "8px 10px", borderRadius: 8, background: C.surface2, border: `1px solid ${C.border}` }}>
-                      <div style={{ fontSize: 7, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isPaused ? C.textMid : C.text, fontFamily: "'Space Grotesk'" }}>
-                        {ad[k] != null ? String(ad[k]) : "—"}
+                {/* Grid de métricas */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  {fields.map(({ label, value }) => (
+                    <div key={label} style={{ background: "#0A0A1A", borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ fontSize: 8, color: "#4A4A6A", fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>
+                        {label}
+                      </div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#E8E8F0", fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {value != null ? String(value) : "—"}
                       </div>
                     </div>
                   ))}
