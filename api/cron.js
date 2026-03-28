@@ -1,3 +1,4 @@
+// CLAUDIN ADS Cron v2
 module.exports = async function handler(req, res) {
   try {
     const SUPABASE_URL = "https://efvkcqnffmqodingqfbk.supabase.co";
