@@ -387,9 +387,18 @@ function AgentView({ agent, project, onBack }) {
     try {
       const res = await fetch("/api/meta-ads?account=ca2");
       const data = await res.json();
+      console.log("[Metrics] API response:", data);
       if (data.error) { setMetricsError(data.error); setAdMetrics([]); }
-      else setAdMetrics(data.ads ?? []);
+      else {
+        const sorted = (data.ads ?? []).sort((a, b) => {
+          const order = { ACTIVE: 0, PAUSED: 1 };
+          return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+        });
+        console.log("[Metrics] ads loaded:", sorted.length, sorted.map(a => a.ad_name));
+        setAdMetrics(sorted);
+      }
     } catch (err) {
+      console.error("[Metrics] fetch error:", err.message);
       setMetricsError(err.message);
     } finally {
       setMetricsLoading(false);
@@ -639,31 +648,35 @@ function AgentView({ agent, project, onBack }) {
             </div>
           )}
           {!metricsLoading && adMetrics.map((ad, ai) => {
-            const paused = ad.daily_budget === "PAUSADO" || ad.status === "PAUSED";
+            const isActive = ad.status === "ACTIVE";
+            const isPaused = ad.status === "PAUSED";
+            const badgeBg = isActive ? `${C.green}12` : `${C.amber}18`;
+            const badgeColor = isActive ? C.green : C.amber;
+            const badgeLabel = isActive ? "ATIVO" : "PAUSADO";
             return (
               <div key={ai} style={{
                 borderRadius: 14, background: C.surface,
-                border: `1px solid ${paused ? C.red + "33" : C.border}`, overflow: "hidden",
+                border: `1px solid ${isPaused ? C.amber + "33" : C.border}`, overflow: "hidden",
               }}>
                 <div style={{
                   padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: C.text, fontFamily: "'Space Grotesk'" }}>
-                    {ad.ad_name || ad.name}
+                    {ad.ad_name}
                   </div>
                   <span style={{
                     fontSize: 8, fontFamily: "'JetBrains Mono'", letterSpacing: 1,
-                    padding: "2px 8px", borderRadius: 6,
-                    background: paused ? `${C.red}18` : `${C.green}12`,
-                    color: paused ? C.red : C.green,
-                  }}>{paused ? "PAUSADO" : "ATIVO"}</span>
+                    padding: "2px 8px", borderRadius: 6, background: badgeBg, color: badgeColor,
+                  }}>{badgeLabel}</span>
                 </div>
                 <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-                  {AD_METRIC_KEYS.filter(k => ad[k] != null).map(k => (
+                  {AD_METRIC_KEYS.map(k => (
                     <div key={k} style={{ padding: "8px 10px", borderRadius: 8, background: C.surface2, border: `1px solid ${C.border}` }}>
                       <div style={{ fontSize: 7, color: C.textDim, fontFamily: "'JetBrains Mono'", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: paused ? C.textDim : C.text, fontFamily: "'Space Grotesk'" }}>{ad[k]}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: isPaused ? C.textMid : C.text, fontFamily: "'Space Grotesk'" }}>
+                        {ad[k] != null ? String(ad[k]) : "—"}
+                      </div>
                     </div>
                   ))}
                 </div>
